@@ -308,11 +308,12 @@ impl RetryableRequest {
                             let sleep = backoff.next();
                             retries += 1;
                             info!(
-                                "Encountered a response status of {} but body contains Error, backing off for {} seconds, retry {} of {}",
+                                "Encountered a response status of {} but body contains Error, backing off for {} seconds, retry {} of {} : {}",
                                 status,
                                 sleep.as_secs_f32(),
                                 retries,
                                 max_retries,
+                                response_body
                             );
                             tokio::time::sleep(sleep).await;
                         }
@@ -369,11 +370,12 @@ impl RetryableRequest {
                         let sleep = backoff.next();
                         retries += 1;
                         info!(
-                            "Encountered server error, backing off for {} seconds, retry {} of {}: {}",
+                            "Encountered server error, backing off for {} seconds, retry {} of {}: {} : {:?}",
                             sleep.as_secs_f32(),
                             retries,
                             max_retries,
                             e,
+                            e.source()
                         );
                         tokio::time::sleep(sleep).await;
                     }
@@ -428,11 +430,12 @@ impl RetryableRequest {
                     let sleep = backoff.next();
                     retries += 1;
                     info!(
-                        "Encountered transport error backing off for {} seconds, retry {} of {}: {}",
+                        "Encountered transport error backing off for {} seconds, retry {} of {}: {} : {:?}",
                         sleep.as_secs_f32(),
                         retries,
                         max_retries,
                         e,
+                        e.source(),
                     );
                     tokio::time::sleep(sleep).await;
                 }
