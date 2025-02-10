@@ -617,7 +617,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     ) -> Result<Box<dyn MultipartUpload>>;
 
     /// Return the bytes that are stored at the specified location.
-    #[tracing::instrument(name = "s3::get")]
+    #[tracing::instrument(name = "s3::get", skip(self))]
     async fn get(&self, location: &Path) -> Result<GetResult> {
         self.get_opts(location, GetOptions::default()).await
     }
@@ -629,7 +629,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
     /// in the given byte range.
     ///
     /// See [`GetRange::Bounded`] for more details on how `range` gets interpreted
-    #[tracing::instrument(name = "s3::get_range")]
+    #[tracing::instrument(name = "s3::get_range", skip(self))]
     async fn get_range(&self, location: &Path, range: Range<usize>) -> Result<Bytes> {
         let options = GetOptions {
             range: Some(range.into()),
@@ -640,7 +640,7 @@ pub trait ObjectStore: std::fmt::Display + Send + Sync + Debug + 'static {
 
     /// Return the bytes that are stored at the specified location
     /// in the given byte ranges
-    #[tracing::instrument(name = "s3::get_ranges")]
+    #[tracing::instrument(name = "s3::get_ranges", skip(self))]
     async fn get_ranges(&self, location: &Path, ranges: &[Range<usize>]) -> Result<Vec<Bytes>> {
         coalesce_ranges(
             ranges,

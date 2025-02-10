@@ -25,6 +25,7 @@ use super::Result;
 use bytes::Bytes;
 use futures::{stream::StreamExt, Stream, TryStreamExt};
 use snafu::Snafu;
+use tracing::Instrument;
 
 #[cfg(any(feature = "azure", feature = "http"))]
 pub(crate) static RFC1123_FMT: &str = "%a, %d %h %Y %T GMT";
@@ -49,7 +50,23 @@ pub(crate) fn hmac_sha256(secret: impl AsRef<[u8]>, bytes: impl AsRef<[u8]>) -> 
     ring::hmac::sign(&key, bytes.as_ref())
 }
 
+async fn get_blocks<S, E>(stream: &mut S, buf: &mut Vec<u8>, block_count: usize) -> Result<(), E>
+where
+    E: Send,
+    S: Stream<Item = Result<Bytes, E>> + Send + Unpin,
+{
+    for _ in 0..block_count {
+        if let Some(maybe_bytes) = stream.next().await {
+            buf.extend_from_slice(&maybe_bytes?);
+        } else {
+            return Ok(());
+        }
+    }
+    Ok(())
+}
+
 /// Collect a stream into [`Bytes`] avoiding copying in the event of a single chunk
+#[tracing::instrument(name = "s3::collect_bytes", skip(stream))]
 pub async fn collect_bytes<S, E>(mut stream: S, size_hint: Option<usize>) -> Result<Bytes, E>
 where
     E: Send,
@@ -66,10 +83,18 @@ where
             let mut buf = Vec::with_capacity(size_hint);
             buf.extend_from_slice(&first);
             buf.extend_from_slice(&second);
+            let block_count = 250;
             while let Some(maybe_bytes) = stream.next().await {
                 buf.extend_from_slice(&maybe_bytes?);
+                let span = tracing::info_span!(
+                    "get_blocks",
+                    block_count = block_count,
+                    start_size = buf.len()
+                );
+                get_blocks(&mut stream, &mut buf, block_count)
+                    .instrument(span)
+                    .await?;
             }
-
             Ok(buf.into())
         }
     }
