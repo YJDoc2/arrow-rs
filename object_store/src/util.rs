@@ -86,13 +86,8 @@ where
             let block_count = 250;
             while let Some(maybe_bytes) = stream.next().await {
                 buf.extend_from_slice(&maybe_bytes?);
-                let span = tracing::info_span!(
-                    "get_blocks",
-                    block_count = block_count,
-                    start_size = buf.len()
-                );
+              
                 get_blocks(&mut stream, &mut buf, block_count)
-                    .instrument(span)
                     .await?;
             }
             Ok(buf.into())
